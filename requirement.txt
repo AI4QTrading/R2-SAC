@@ -1,0 +1,8 @@
+numpy 1.20.3
+paddlepaddle 2.2.0 
+parl 2.0.4
+pandas 1.5.3
+torch 1.10.0
+scipy 1.7.3
+sklearn 1.2.2
+matplotlib 3.3.4
