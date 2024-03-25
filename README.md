@@ -8,3 +8,5 @@ a novel framework for stock portfolio trading that employs a 'Relaxation and Ref
 
 4. To run R2-SAC, you should rewrite the test procedure for your trading strategy and get the hawkes scripts from the  https://github.com/HongtengXu/PoPPy/.
 
+5. For some suggetions, we built AI4QTrading-patch-1 branch to help reproducing the strategy. And for commercial reason, some data need to be downloaded from the public data source.
+
