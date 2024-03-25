@@ -46,6 +46,7 @@ class Actor(parl.Model):
 
     def forward(self, obs):
 
+
         a = F.relu(self.l1(obs))
         bn = nn.BatchNorm(a.shape[1])
         a=bn(a)
@@ -99,7 +100,7 @@ class Critic(parl.Model):
         bn = nn.BatchNorm(q2.shape[1])
         q2 = bn(q2)
         q2 = self.l6(q2)
-        #q1 = q1.sum(axis=1)
+        #q1 = q1.sum(axis=1)z
         #q2=q2.sum(axis=1)
 
         return q1,q2

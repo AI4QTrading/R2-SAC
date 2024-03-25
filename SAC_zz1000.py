@@ -2,7 +2,7 @@ import numpy as np
 import paddle
 
 from replay_memory_sacduiqi import ReplayMemory
-from parl.algorithms import SAC
+from Sac import SAC
 from StockModel import StockModel
 from StockAgent import StockAgent
 
@@ -21,11 +21,11 @@ TAU=0.005
 ACTOR_LR=1e-4
 CRITIC_LR=1e-4
 alpha=0.35
+position_coe=60
 
 
-
-df = pd.read_pickle('/data/hxyz/mindgo/zz1000.pkl')
-df=df.iloc[:1250*705]
+df = pd.read_csv('./zz1000.csv',index_col=0)#两天的样例
+df=df.iloc[:1250*705]#选择训练的日期
 
 
 def run_train_episode(agent,env,rpm,episode_num):
@@ -45,10 +45,11 @@ def run_train_episode(agent,env,rpm,episode_num):
         else:
             action = agent.sample(obs)
             action=(action+1.)/2.
-            # action = action.T
-            # buy=np.where(action[0]<1/3)
-            # action[1][buy]=action[1][buy]*xishu/np.sum(action[1][buy])
-            # action = action.T
+            action = action.T
+
+            buy = np.where(action[0] < 1 / 3)
+            action[1][buy] = action[1][buy] * position_coe / np.sum(action[1][buy])
+            action = action.T
 
 
 
@@ -83,7 +84,7 @@ def do_train(agent,env,rpm):
         total_steps +=episode_steps
         if (episode_num%save_freq==0):
 
-            agent.save("/data/hxyz/zz_1000/SAC_zz1000_"+str(episode_num)+".ckpt")
+            agent.save("./sac_models/SAC_"+str(episode_num)+".ckpt")
 
 
 

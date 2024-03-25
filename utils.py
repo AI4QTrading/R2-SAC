@@ -1,4 +1,11 @@
+# @Time    : 2020/8/16 
+# @Author  : LeronQ
+# @github  : https://github.com/LeronQ
 
+
+#  utils.py
+
+# -*- coding: utf-8 -*-
 
 #import matplotlib.pyplot as plt
 import numpy as np
@@ -11,6 +18,7 @@ class Evaluation(object):
 
     @staticmethod
     def mae_(target, output):
+        print('xx',np.mean(np.abs(target - output)))
         return np.mean(np.abs(target - output))
 
     @staticmethod

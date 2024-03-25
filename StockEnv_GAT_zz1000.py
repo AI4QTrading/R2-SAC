@@ -6,8 +6,8 @@ import gym
 from gym import spaces
 
 INITIAL_ACCOUNT_BALANCE = 10000000
-#INITIAL_ACCOUNT_BALANCE =13279174.853655895# 初始的金钱
-#INITIAL_ACCOUNT_BALANCE =14351536.360511404
+#INITIAL_ACCOUNT_BALANCE = 18762095.661470238# 初始的金钱
+#INITIAL_ACCOUNT_BALANCE = 19971548.986015867
 BUY_RATE = 0.001  # 买入费率
 SELL_RATE = 0.0015  # 买入费率
 
@@ -22,7 +22,14 @@ class StockTradingEnv(gym.Env):
         # self.reward_range = (0, MAX_ACCOUNT_BALANCE)
         self.date = df.date.unique()
         self.df = df.set_index(['date'])
-
+        self.take_action = pd.DataFrame([[[1]], [[0]], [[1]], [[0]]])
+        self.s_closedf = pd.read_csv('/disk/ljq_104/1d_data/close_post.csv', index_col=0)
+        self.close_pre = [[self.s_closedf.loc[self.date[i], j] if (j in self.s_closedf) else 0 for j in
+                           self.df.code.loc[self.date[i - 1]]] for i in
+                          range(1, len(self.date))]
+        self.close_now = [[self.s_closedf.loc[self.date[i], j] if (j in self.s_closedf) else 0 for j in
+                           self.df.code.loc[self.date[i]]] for i in
+                          range(len(self.date))]
         # 动作的可能情况：买入x%, 卖出x%, 观望
         self.action_space = spaces.Box(
             low=np.array([0, 0]), high=np.array([1, 50]), dtype=np.float32)
@@ -75,55 +82,59 @@ class StockTradingEnv(gym.Env):
         current_price = list(self.df.loc[self.date[self.current_step], "close"])
         action_type = action[0]
         amount = action[1]
+        df=self.df.loc[self.date[self.current_step]]
+        buy={}
+        for i in range(len(action_type)):
+            if action_type[i]<1/3:
+                buy[i]=df.youxianji.iloc[i]
+        b=sorted(buy.items(),key=lambda x:x[1],reverse=True)
+        b1=[]
+        for i in b:
+            b1.append(i[0])
 
-        for i in range(len(amount)):
-            amount[i] = np.clip(amount[i], 0, 0.1)
-            if action_type[i] < 1 / 3 and self.balance >= current_price[i]*100:  # 买入amount%
-                #total_possible = int(self.balance / current_price[i])
-                #shares_bought = int(total_possible * amount[i])
-                total_possible = self.balance * amount[i]  # 买入amount%
-                shares_bought = int(total_possible / (current_price[i]*100 * (1 + BUY_RATE)))
+        for i in b1:
+
+            if action_type[i] < 1 / 3 and self.balance >= current_price[i]:
+                amount[i]=np.clip(amount[i],0,0.1)# 买入amount%
+                total_possible = int(self.balance / (current_price[i]*(1+BUY_RATE)))
+                shares_bought = int(total_possible * amount[i])
                 if shares_bought != 0.:
                     prev_cost = self.cost_basis[i] * self.shares_held[i]
-                    additional_cost = shares_bought * current_price[i]*100
+                    additional_cost = shares_bought * current_price[i]
 
                     self.balance -= additional_cost * (1 + BUY_RATE)
                     self.cost_basis[i] = (prev_cost + additional_cost * (1 + BUY_RATE)) / (
                                               self.shares_held[i] + shares_bought)
                     self.shares_held[i] += shares_bought
 
-            elif action_type[i] > 2 / 3 and self.shares_held[i] != 0:  # 卖出amount%
+        for i in range(len(action_type)):
+
+            if action_type[i] > 2 / 3 and self.shares_held[i] != 0:
+                amount[i]=np.clip(amount[i],0,1)# 卖出amount%
+
                 shares_sold = int(self.shares_held[i] * amount[i])
-                self.balance = self.balance + shares_sold * current_price[i]*100 - shares_sold * current_price[i] *100* SELL_RATE
+                self.balance = self.balance + shares_sold * current_price[i] - shares_sold * current_price[i] * SELL_RATE
                 self.shares_held[i] -= shares_sold
                 self.total_shares_sold[i] += shares_sold
-                self.total_sales_value[i] += shares_sold * current_price[i]*100
+                self.total_sales_value[i] += shares_sold * current_price[i]
 
             else:
                 pass
-        chicang=self.shares_held+[self.balance]
+        chicang = self.shares_held + [self.balance]
 
-        final_gushu=[]
-        for i in self.shares_held:
-            final_gushu.append(i*100)
-
-        net_worth_before = self.net_worth
+        net_worth_be=self.net_worth
         # 计算出执行动作后的资产净值
-        self.net_worth = self.balance +  sum(np.multiply(final_gushu, current_price))
-
-        cangwei = (self.net_worth - self.balance) / self.net_worth
-        day_buy = self.net_worth - self.balance
+        self.net_worth = self.balance +  sum(np.multiply(self.shares_held, current_price))
+        cangwei=(self.net_worth-self.balance)/self.net_worth
+        day_buy=self.net_worth-self.balance
         if self.net_worth > self.max_net_worth:
             self.max_net_worth = self.net_worth
 
         if self.shares_held == [0 for _ in range(705)]:
             self.cost_basis = [0 for _ in range(705)]
 
-        return chicang,cangwei,day_buy,net_worth_before
-
     # 执行当前动作，并计算出当前的数据（如：资产等）
-
-
+        return chicang,cangwei,day_buy,net_worth_be
 
     # 与环境交互
     def step(self, action):
@@ -135,7 +146,16 @@ class StockTradingEnv(gym.Env):
 
 
 
-        chicang,cangwei,day_buy,net_worth_before=self._take_action(action)
+        """action_type = action[0]
+        amount = action[1]*50
+
+        for i in range(len(action_type)):
+            if action_type[i] >= 1/2 :
+                amount[i]=0
+            else:
+                amount[i]=round(amount[i],2)"""
+
+        chicang,cangwei,day_buy,net_worth_be=self._take_action(action)
 
         done = False
         status = None
@@ -153,7 +173,6 @@ class StockTradingEnv(gym.Env):
 
         if self.current_step > len(self.date) - 1:
 
-            # reward += (self.net_worth / INITIAL_ACCOUNT_BALANCE - max_predict_rate) / max_predict_rate
             reward += (20 * (self.net_worth - INITIAL_ACCOUNT_BALANCE) / INITIAL_ACCOUNT_BALANCE)
             self.current_step = 0  # loop training
             done = True
@@ -165,7 +184,7 @@ class StockTradingEnv(gym.Env):
             done = True
 
         else:
-            reward += (2 * (self.net_worth - net_worth_before) / net_worth_before)
+            reward += (2 * (self.net_worth - net_worth_be) / net_worth_be)
 
         status = f'TESTING: Max worth was {self.max_net_worth}, final worth is {self.net_worth}.'
 
@@ -176,9 +195,9 @@ class StockTradingEnv(gym.Env):
             'profit': self.net_worth,
             'current_step': self.current_step,
             'status': status,
-            'cangwei': cangwei,
-            'balance': self.balance,
-            'day_buy': day_buy
+            'cangwei':cangwei,
+            'balance':self.balance,
+            'day_buy':day_buy
 
         },chicang
 
